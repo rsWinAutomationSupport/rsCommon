@@ -22,3 +22,11 @@ Function Get-XenInfo {
    $data = $session.GetValue($value).value -replace "`"", ""
    return $data
 }
+Function Get-ServiceCatalog {
+   param (
+      [string]$userName,
+      [string]$apiKey,
+      [string]$caller
+   )
+   return (Invoke-RestMethod -Uri $("https://identity.api.rackspacecloud.com/v2.0/tokens") -Method POST -Body $(@{"auth" = @{"RAX-KSKEY:apiKeyCredentials" = @{"username" = $userName; "apiKey" = $apiKey}}} | convertTo-Json) -ContentType application/json)
+}
