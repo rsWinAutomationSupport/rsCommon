@@ -1,6 +1,9 @@
 if(Test-Path -Path "C:\DevOps\secrets.ps1") {
    . "C:\DevOps\secrets.ps1"
 }
+if(Test-Path -Path "C:\cloud-automation\secrets.ps1") {
+   . "C:\cloud-automation\secrets.ps1"
+}
 if(Test-Path -Path "C:\DevOps\dedicated.csv") {
    $DedicatedData = Import-Csv -Path "C:\DevOps\dedicated.csv"
 }
@@ -8,6 +11,14 @@ if(Test-Path -Path $($d.wD, $d.mR, 'PullServer.info' -join '\')) {
    . "$($d.wD, $d.mR, 'PullServer.info' -join '\')"
 }
 
+Function Get-Secrets {
+   if(Test-Path -Path "C:\DevOps\secrets.ps1") {
+      return "C:\DevOps\secrets.ps1"
+   }
+   if(Test-Path -Path "C:\cloud-automation\secrets.ps1") {
+      return "C:\cloud-automation\secrets.ps1"
+   }
+}
 Function Get-ServiceCatalog {
    return (Invoke-rsRestMethod -Retries 20 -TimeOut 15 -Uri $("https://identity.api.rackspacecloud.com/v2.0/tokens") -Method POST -Body $(@{"auth" = @{"RAX-KSKEY:apiKeyCredentials" = @{"username" = $($d.cU); "apiKey" = $($d.cAPI)}}} | convertTo-Json) -ContentType application/json)
 }
@@ -120,7 +131,7 @@ Function Test-Cloud {
    }
 }
 Function Get-Role {
-   if(isCloud) {
+   if(Test-Cloud) {
       $Data = Get-XenInfo -value 'vm-data/provider_data/role'
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve role"
@@ -136,7 +147,7 @@ Function Get-Role {
    }
 }
 Function Get-Region {
-   if(isCloud) {
+   if(Test-Cloud) {
       $Data = Get-XenInfo -value 'vm-data/provider_data/region'
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve region"
@@ -170,6 +181,9 @@ Function Get-File {
       try {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Attempting to download $url."
          $webclient.DownloadFile($url,$path)
+         if(Test-Path -Path $path -eq $true) {
+            $i = $retries
+         }
       }
       catch {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "Failed to download $url sleeping for $timeOut seconds then trying again. `n $($_.Exception.Message)"
@@ -177,6 +191,109 @@ Function Get-File {
          Start-Sleep -Seconds $timeOut
       }
    }
-   while (!(Test-Path -Path $path))
+   while ($i -lt $retries)
    return
+}
+
+Function Get-PublicIp {
+   param (
+      [uint32]$retries = 5,
+      [uint32]$timeOut = 15
+   )
+   if(Test-Cloud) {
+      $catalog = Get-ServiceCatalog
+      $region = Get-Region
+      $i = 0
+      $uri = (($catalog.access.serviceCatalog | ? name -eq "cloudServersOpenStack").endpoints | ? region -eq $region).publicURL
+      do {
+         if($i -ge $retries) { 
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Retry threshold reached, stopping retry loop."
+            break 
+         }
+         try {
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Retrieving Public address $accessIPv4"
+            $Data = (((Invoke-rsRestMethod -Retries $retries -TimeOut $timeOut -Uri $($uri, "servers/detail" -join '/') -Method GET -Headers @{"X-Auth-Token"=($catalog.access.token.id)} -ContentType application/json).servers) | ? { $_.name -eq $env:COMPUTERNAME}).accessIPv4
+         }
+         catch {
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "Failed to retrieve Public address, sleeping for $timeOut seconds then trying again. `n $($_.Exception.Message)"
+            $i++
+            Start-Sleep -Seconds $timeOut
+         }
+      }
+      while ($i -lt $retries)
+      if($Data) {
+         return $Data
+      }
+      else {
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "Failed to retrieve public ip address, sleeping for $timeOut seconds then trying again."
+         return $Data
+      }
+   }
+   else {
+      if(Test-Path -Path $($d.wD, $d.mR, "dedicated.csv" -join '\')) {
+         $Data = (Import-Csv $($d.wD, $d.mR, "dedicated.csv" -join '\') | ? ServerName -eq $env:COMPUTERNAME).PublicIP
+      }
+      return $Data
+   }
+   if($Data) {
+      return $Data
+   }
+   else {
+      Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "Failed to retrieve public ip address, sleeping for $timeOut seconds then trying again."
+      return $Data
+   }
+}
+
+Function Get-AccountDetails {
+   if(Test-Cloud) {
+      $currentRegion = Get-Region
+      $catalog = Get-ServiceCatalog
+      if(($catalog.access.user.roles | ? name -eq "rack_connect").id.count -gt 0) { $isRackConnect = $true } else { $isRackConnect = $false }
+      if(($catalog.access.user.roles | ? name -eq "rax_managed").id.count -gt 0) { $isManaged = $true } else { $isManaged = $false } 
+      $defaultRegion = $catalog.access.user.'RAX-AUTH:defaultRegion'
+      return @{"currentRegion" = $currentRegion; "isRackConnect" = $isRackConnect; "isManaged" = $isManaged; "defaultRegion" = $defaultRegion}
+   }
+}
+
+Function Test-RackConnect {
+   if(Test-Cloud) {
+      $Data = Get-AccountDetails
+      if($Data.isRackConnect -and ($Data.currentRegion -eq $Data.defaultRegion)) {
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "The server is Rackconnect and is in the default region"
+         $uri = $(("https://", $Data.currentRegion -join ''), ".api.rackconnect.rackspace.com/v1/automation_status?format=text" -join '')
+         do {
+            $rcStatus = Invoke-rsRestMethod -Uri $uri -Method GET -ContentType application/json
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
+            Start-Sleep -Seconds 10
+         }
+         while ($rcStatus -ne "DEPLOYED")
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
+      }
+   }
+}
+
+Function Test-Managed {
+   if(Test-Cloud) {
+      $Data = Get-AccountDetails
+      if($isManaged -or (($defaultRegion -ne $currentRegion) -and $isRackConnect)) {
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Account is either managed or server is not in the default region isManaged $isManaged defaultRegion $defaultRegion Current region $currentRegion isRackConnect $isRackConnect starting to sleep"
+         Start-Sleep -Seconds 60
+         if((Get-XenInfo -value "vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { 
+         $exists = $true 
+         }
+         else { 
+            $exists = $false 
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation is not completed."
+         } 
+         if ( $exists )
+         {
+            do {
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Waiting for rax_service_level_automation."
+               Start-Sleep -Seconds 30
+            }
+            while ( (Test-Path "C:\Windows\Temp\rs_managed_cloud_automation_complete.txt" ) -eq $false)
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation complete."
+         }
+      } 
+   }
 }
