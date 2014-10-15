@@ -243,17 +243,24 @@ Function Get-PublicIp {
       return $Data
    }
 }
-Function Test-RackConnect {
+
+Function Get-AccountDetails {
    if(Test-Cloud) {
       $currentRegion = Get-Region
       $catalog = Get-ServiceCatalog
       if(($catalog.access.user.roles | ? name -eq "rack_connect").id.count -gt 0) { $isRackConnect = $true } else { $isRackConnect = $false }
       if(($catalog.access.user.roles | ? name -eq "rax_managed").id.count -gt 0) { $isManaged = $true } else { $isManaged = $false } 
       $defaultRegion = $catalog.access.user.'RAX-AUTH:defaultRegion'
-      Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Checking Rackconnect: Current region $currentRegion isRackconnect $isRackConnect isManaged $isManaged defaultRegion $defaultRegion"
-      if($isRackConnect -and ($currentRegion -eq $defaultRegion)) {
+      return @{"currentRegion" = $currentRegion; "isRackConnect" = $isRackConnect; "isManaged" = $isManaged; "defaultRegion" = $defaultRegion}
+   }
+}
+
+Function Test-RackConnect {
+   if(Test-Cloud) {
+      $Data = Get-AccountDetails
+      if($Data.isRackConnect -and ($Data.currentRegion -eq $Data.defaultRegion)) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "The server is Rackconnect and is in the default region"
-         $uri = $(("https://", $currentRegion -join ''), ".api.rackconnect.rackspace.com/v1/automation_status?format=text" -join '')
+         $uri = $(("https://", $Data.currentRegion -join ''), ".api.rackconnect.rackspace.com/v1/automation_status?format=text" -join '')
          do {
             $rcStatus = Invoke-rsRestMethod -Uri $uri -Method GET -ContentType application/json
             Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
@@ -267,27 +274,25 @@ Function Test-RackConnect {
 
 Function Test-Managed {
    if(Test-Cloud) {
-      Write-EventLog -LogName DevOps -Source BasePrep -EntryType Information -EventId 1000 -Message "Checking to see if account is managed"
-      $currentRegion = Get-Region
-      if($Global:isManaged -or (($Global:defaultRegion -ne $currentRegion) -and $Global:isRackConnect)) {
-         Write-EventLog -LogName DevOps -Source BasePrep -EntryType Information -EventId 1000 -Message "Account is either managed or server is not in the default region isManaged $Global:isManaged defaultRegion $Global:defaultRegion Current region $currentRegion isRackConnect $Global:isRackConnect starting to sleep"
+      $Data = Get-AccountDetails
+      if($isManaged -or (($defaultRegion -ne $currentRegion) -and $isRackConnect)) {
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Account is either managed or server is not in the default region isManaged $isManaged defaultRegion $defaultRegion Current region $currentRegion isRackConnect $isRackConnect starting to sleep"
          Start-Sleep -Seconds 60
-         $base = gwmi -n root\wmi -cl CitrixXenStoreBase 
-         $sid = $base.AddSession("MyNewSession") 
-         $session = gwmi -n root\wmi -q "select * from CitrixXenStoreSession where SessionId=$($sid.SessionId)" 
-         if( $session.GetValue("vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { $exists = $true }
+         if((Get-XenInfo -value "vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { 
+         $exists = $true 
+         }
          else { 
             $exists = $false 
-            Write-EventLog -LogName DevOps -Source BasePrep -EntryType Information -EventId 1000 -Message "rax_service_level_automation is not completed."
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation is not completed."
          } 
          if ( $exists )
          {
             do {
-               Write-EventLog -LogName DevOps -Source BasePrep -EntryType Information -EventId 1000 -Message "Waiting for rax_service_level_automation."
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Waiting for rax_service_level_automation."
                Start-Sleep -Seconds 30
             }
             while ( (Test-Path "C:\Windows\Temp\rs_managed_cloud_automation_complete.txt" ) -eq $false)
-            Write-EventLog -LogName DevOps -Source BasePrep -EntryType Information -EventId 1000 -Message "rax_service_level_automation complete."
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation complete."
          }
       } 
    }
