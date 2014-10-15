@@ -8,6 +8,10 @@ if(Test-Path -Path $($d.wD, $d.mR, 'PullServer.info' -join '\')) {
    . "$($d.wD, $d.mR, 'PullServer.info' -join '\')"
 }
 
+Function Get-ServiceCatalog {
+   return (Invoke-rsRestMethod -Retries 20 -TimeOut 15 -Uri $("https://identity.api.rackspacecloud.com/v2.0/tokens") -Method POST -Body $(@{"auth" = @{"RAX-KSKEY:apiKeyCredentials" = @{"username" = $($d.cU); "apiKey" = $($d.cAPI)}}} | convertTo-Json) -ContentType application/json)
+}
+
 Function Invoke-rsRestMethod {
    param (
       [string][ValidateNotNull()]$Uri,
@@ -22,14 +26,36 @@ Function Invoke-rsRestMethod {
    $i = 0
    do {
       if($i -ge $Retries) {
-         Write-EventLog -LogName DevOps -Source $rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve service catalog, reached maximum retries"
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve service catalog, reached maximum retries"
          return $null
       }
       if($Method.ToLower() -eq "post" -or $Method.ToLower() -eq "put") {
-         $Data =  (Invoke-RestMethod -Uri $Uri -Method $Method.ToUpper() -Body $Body -Headers $Headers -ContentType $ContentType -ErrorAction SilentlyContinue)
+         try {
+            $Data =  (Invoke-RestMethod -Uri $Uri -Method $Method.ToUpper() -Body $Body -Headers $Headers -ContentType $ContentType -ErrorAction SilentlyContinue)
+         }
+         catch {
+            if(($error[0].Exception.Response.StatusCode.value__) -ge 500) {
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.ExceptionMessage)"
+            }
+            else {
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.ExceptionMessage)"
+               break
+            }
+         }
       }
       else {
-         $Data =  (Invoke-RestMethod -Uri $Uri -Method $Method.ToUpper() -Headers $Headers -ContentType $ContentType -ErrorAction SilentlyContinue)
+         try {
+            $Data =  (Invoke-RestMethod -Uri $Uri -Method $Method.ToUpper() -Headers $Headers -ContentType $ContentType -ErrorAction SilentlyContinue)
+         }
+         catch {
+            if(($error[0].Exception.Response.StatusCode.value__) -ge 500) {
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.ExceptionMessage)"
+            }
+            else {
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.ExceptionMessage)"
+               break
+            }
+         }
       }
       $i++
       if($Data -eq $null) {
@@ -45,7 +71,7 @@ Function Invoke-rsRestMethod {
    while($Data -eq $null)
    return $Data
 }
-Function Create-EventLog {
+Function New-EventLog {
    param (
       [string]$logSource
    )
@@ -84,7 +110,7 @@ Function Get-DedicatedInfo {
    }
    return $Data.$($Value)
 }
-Function isCloud {
+Function Test-Cloud {
    $base = gwmi -n root\wmi -cl CitrixXenStoreBase -ErrorAction SilentlyContinue
    if($base) {
       return $true
@@ -127,7 +153,7 @@ Function Get-Region {
    
 }
 
-Function Download-File {
+Function Get-File {
    param ( 
       [string][ValidateNotNull()]$url, 
       [string][ValidateNotNull()]$path,
