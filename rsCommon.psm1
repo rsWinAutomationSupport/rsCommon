@@ -35,10 +35,10 @@ Function Invoke-rsRestMethod {
          }
          catch {
             if(($error[0].Exception.Response.StatusCode.value__) -ge 500) {
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.ExceptionMessage)"
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.Exception.Message)"
             }
             else {
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.ExceptionMessage)"
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.Exception.Message)"
                break
             }
          }
@@ -49,17 +49,17 @@ Function Invoke-rsRestMethod {
          }
          catch {
             if(($error[0].Exception.Response.StatusCode.value__) -ge 500) {
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.ExceptionMessage)"
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.Exception.Message)"
             }
             else {
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.ExceptionMessage)"
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.Exception.Message)"
                break
             }
          }
       }
       $i++
       if($Data -eq $null) {
-         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 10002 -Message "Failed API call trying again in $timeOuts seconds`n $($_.ExceptionMessage)"
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 10002 -Message "Failed API call trying again in $timeOuts seconds`n $($_.Exception.Message)"
          if($i -ge $Retries) {
             return $null
          }
