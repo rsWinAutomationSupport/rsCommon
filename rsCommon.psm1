@@ -71,7 +71,7 @@ Function Invoke-rsRestMethod {
    while($Data -eq $null)
    return $Data
 }
-Function New-EventLog {
+Function New-EventLogSource {
    param (
       [string]$logSource
    )
