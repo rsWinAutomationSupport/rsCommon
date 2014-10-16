@@ -1,16 +1,3 @@
-if(Test-Path -Path "C:\DevOps\secrets.ps1") {
-   . "C:\DevOps\secrets.ps1"
-}
-if(Test-Path -Path "C:\cloud-automation\secrets.ps1") {
-   . "C:\cloud-automation\secrets.ps1"
-}
-if(Test-Path -Path "C:\DevOps\dedicated.csv") {
-   $DedicatedData = Import-Csv -Path "C:\DevOps\dedicated.csv"
-}
-if(Test-Path -Path $($d.wD, $d.mR, 'PullServer.info' -join '\')) {
-   . "$($d.wD, $d.mR, 'PullServer.info' -join '\')"
-}
-
 Function Get-Secrets {
    if(Test-Path -Path "C:\DevOps\secrets.ps1") {
       return "C:\DevOps\secrets.ps1"
@@ -19,8 +6,21 @@ Function Get-Secrets {
       return "C:\cloud-automation\secrets.ps1"
    }
 }
+. (Get-Secrets)
+
+if(Test-Path -Path "C:\DevOps\dedicated.csv") {
+   $DedicatedData = Import-Csv -Path "C:\DevOps\dedicated.csv"
+}
+if(Test-Path -Path $($d.wD, $d.mR, 'PullServer.info' -join '\')) {
+   . "$($d.wD, $d.mR, 'PullServer.info' -join '\')"
+}
+
 Function Get-ServiceCatalog {
    return (Invoke-rsRestMethod -Retries 20 -TimeOut 15 -Uri $("https://identity.api.rackspacecloud.com/v2.0/tokens") -Method POST -Body $(@{"auth" = @{"RAX-KSKEY:apiKeyCredentials" = @{"username" = $($d.cU); "apiKey" = $($d.cAPI)}}} | convertTo-Json) -ContentType application/json)
+}
+
+Function Get-AuthToken {
+   return @{"X-Auth-Token"=((Get-ServiceCatalog).access.token.id)}
 }
 
 Function Invoke-rsRestMethod {
@@ -279,7 +279,7 @@ Function Test-Managed {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Account is either managed or server is not in the default region isManaged $isManaged defaultRegion $defaultRegion Current region $currentRegion isRackConnect $isRackConnect starting to sleep"
          Start-Sleep -Seconds 60
          if((Get-XenInfo -value "vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { 
-         $exists = $true 
+            $exists = $true 
          }
          else { 
             $exists = $false 
@@ -297,3 +297,74 @@ Function Test-Managed {
       } 
    }
 }
+
+Function Update-KnownHostsFile {
+   $sshPaths = @("C:\Program Files (x86)\Git\.ssh", "C:\Windows\SysWOW64\config\systemprofile\.ssh", "C:\Windows\System32\config\systemprofile\.ssh")
+   foreach($sshPath in $sshPaths) {
+      if(!(Test-Path -Path $sshPath)) {
+         try {
+            New-Item -Path $sshPath -ItemType container
+         }
+         catch {
+            Write-EventLog -LogName DevOps -Source BasePrep -EntryType Error -EventId 1002 -Message "Failed to create directory $sshPath `n $($_.Execption.Message)"
+         }
+      }
+      New-Item $($sshPath, "known_hosts" -join '\') -ItemType File -Force
+      Add-Content $($sshPath, "known_hosts" -join '\') -Value "github.com,192.30.252.129 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
+      Add-Content $($sshPath, "known_hosts" -join '\') -Value "192.30.252.128 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
+      Add-Content $($sshPath, "known_hosts" -join '\') -Value "192.30.252.131 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
+      Add-Content $($sshPath, "known_hosts" -join '\') -Value "192.30.252.130 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
+   }
+}
+
+Function New-SSHKey {
+   if((Get-Role) -eq "Pull") {
+      Start-Service Browser
+      if(Test-Path -Path "C:\Program Files (x86)\Git\.ssh\id_rsa*") {
+         Remove-Item "C:\Program Files (x86)\Git\.ssh\id_rsa*"
+      }
+      Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Generating ssh Key"
+      try {
+         Start -Wait -NoNewWindow "C:\Program Files (x86)\Git\bin\ssh-keygen.exe" -ArgumentList "-t rsa -f 'C:\Program Files (x86)\Git\.ssh\id_rsa' -P """""
+      }
+      catch {
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to generate SSH Key `n $($_.Exception.Message)"
+      }
+      Stop-Service Browser
+   }
+   return
+}
+   
+Function Push-SSHKey {
+   if((Get-Role) -eq "pull") {
+      $keys = Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.gAPI)"} -ContentType application/json -Method GET
+      $pullKeys = $keys | ? title -eq $($d.DDI, "_", $env:COMPUTERNAME -join '')
+      if((($pullKeys).id).count -gt 0) {
+         foreach($pullKey in $pullKeys) {
+            Invoke-rsRestMethod -Uri $("https://api.github.com/user/keys", $pullKey.id -join '/') -Headers @{"Authorization" = "token $($d.gAPI)"} -ContentType application/json -Method DELETE
+         }
+      }
+      $sshKey = Get-Content -Path "C:\Program Files (x86)\Git\.ssh\id_rsa.pub"
+      $json = @{"title" = "$($d.DDI, "_", $env:COMPUTERNAME -join '')"; "key" = "$sshKey"} | ConvertTo-Json
+      Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.gAPI)"} -Body $json -ContentType application/json -Method Post
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "config --system user.email $serverName@localhost.local"
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "config --system user.name $serverName"
+   }
+   Stop-Service Browser
+   return
+}
+
+Function Update-GitConfig {
+   param (
+      [string][ValidateSet('global', 'system')]$scope = 'system',
+      [string]$attribute,
+      [string]$value
+   )
+   try {
+      start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "config $("--", $scope -join '') $attribute $value"
+   }
+   catch {
+      Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to update gitconfig file `n $($_.Exception.Message)"
+   }
+}
+
