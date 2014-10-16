@@ -1,4 +1,4 @@
-Function Get-Secrets {
+Function Get-rsSecrets {
    if(Test-Path -Path "C:\DevOps\secrets.ps1") {
       return "C:\DevOps\secrets.ps1"
    }
@@ -6,7 +6,7 @@ Function Get-Secrets {
       return "C:\cloud-automation\secrets.ps1"
    }
 }
-. (Get-Secrets)
+. (Get-rsSecrets)
 
 if(Test-Path -Path "C:\DevOps\dedicated.csv") {
    $DedicatedData = Import-Csv -Path "C:\DevOps\dedicated.csv"
@@ -15,12 +15,12 @@ if(Test-Path -Path $($d.wD, $d.mR, 'PullServer.info' -join '\')) {
    . "$($d.wD, $d.mR, 'PullServer.info' -join '\')"
 }
 
-Function Get-ServiceCatalog {
+Function Get-rsServiceCatalog {
    return (Invoke-rsRestMethod -Retries 20 -TimeOut 15 -Uri $("https://identity.api.rackspacecloud.com/v2.0/tokens") -Method POST -Body $(@{"auth" = @{"RAX-KSKEY:apiKeyCredentials" = @{"username" = $($d.cU); "apiKey" = $($d.cAPI)}}} | convertTo-Json) -ContentType application/json)
 }
 
-Function Get-AuthToken {
-   return @{"X-Auth-Token"=((Get-ServiceCatalog).access.token.id)}
+Function Get-rsAuthToken {
+   return @{"X-Auth-Token"=((Get-rsServiceCatalog).access.token.id)}
 }
 
 Function Invoke-rsRestMethod {
@@ -82,7 +82,7 @@ Function Invoke-rsRestMethod {
    while($Data -eq $null)
    return $Data
 }
-Function New-EventLogSource {
+Function New-rsEventLogSource {
    param (
       [string]$logSource
    )
@@ -98,7 +98,7 @@ Function New-EventLogSource {
       }
    }
 }
-Function Get-XenInfo {
+Function Get-rsXenInfo {
    param([string] $value)
    $base = gwmi -n root\wmi -cl CitrixXenStoreBase
    $sid = $base.AddSession("MyNewSession")
@@ -106,7 +106,7 @@ Function Get-XenInfo {
    $data = $session.GetValue($value).value -replace "`"", ""
    return $data
 }
-Function Get-DedicatedInfo {
+Function Get-rsDedicatedInfo {
    param (
       [string]$Value
    )
@@ -121,7 +121,7 @@ Function Get-DedicatedInfo {
    }
    return $Data.$($Value)
 }
-Function Test-Cloud {
+Function Test-rsCloud {
    $base = gwmi -n root\wmi -cl CitrixXenStoreBase -ErrorAction SilentlyContinue
    if($base) {
       return $true
@@ -130,32 +130,32 @@ Function Test-Cloud {
       return $false
    }
 }
-Function Get-Role {
+Function Get-rsRole {
    if(Test-Cloud) {
-      $Data = Get-XenInfo -value 'vm-data/provider_data/role'
+      $Data = Get-rsXenInfo -value 'vm-data/provider_data/role'
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve role"
       }
       return $Data
    }
    else {
-      $Data = Get-DedicatedInfo -Value 'role'
+      $Data = Get-rsDedicatedInfo -Value 'role'
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve role"
       }
       return $Data
    }
 }
-Function Get-Region {
+Function Get-rsRegion {
    if(Test-Cloud) {
-      $Data = Get-XenInfo -value 'vm-data/provider_data/region'
+      $Data = Get-rsXenInfo -value 'vm-data/provider_data/region'
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve region"
       }
       return $Data
    }
    else {
-      $Data = Get-DedicatedInfo -Value 'region'
+      $Data = Get-rsDedicatedInfo -Value 'region'
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve region"
       }
@@ -164,7 +164,7 @@ Function Get-Region {
    
 }
 
-Function Get-File {
+Function Get-rsFile {
    param ( 
       [string][ValidateNotNull()]$url, 
       [string][ValidateNotNull()]$path,
@@ -195,14 +195,14 @@ Function Get-File {
    return
 }
 
-Function Get-PublicIp {
+Function Get-rsPublicIp {
    param (
       [uint32]$retries = 5,
       [uint32]$timeOut = 15
    )
    if(Test-Cloud) {
-      $catalog = Get-ServiceCatalog
-      $region = Get-Region
+      $catalog = Get-rsServiceCatalog
+      $region = Get-rsRegion
       $i = 0
       $uri = (($catalog.access.serviceCatalog | ? name -eq "cloudServersOpenStack").endpoints | ? region -eq $region).publicURL
       do {
@@ -244,10 +244,10 @@ Function Get-PublicIp {
    }
 }
 
-Function Get-AccountDetails {
-   if(Test-Cloud) {
-      $currentRegion = Get-Region
-      $catalog = Get-ServiceCatalog
+Function Get-rsAccountDetails {
+   if(Test-rsCloud) {
+      $currentRegion = Get-rsRegion
+      $catalog = Get-rsServiceCatalog
       if(($catalog.access.user.roles | ? name -eq "rack_connect").id.count -gt 0) { $isRackConnect = $true } else { $isRackConnect = $false }
       if(($catalog.access.user.roles | ? name -eq "rax_managed").id.count -gt 0) { $isManaged = $true } else { $isManaged = $false } 
       $defaultRegion = $catalog.access.user.'RAX-AUTH:defaultRegion'
@@ -255,9 +255,9 @@ Function Get-AccountDetails {
    }
 }
 
-Function Test-RackConnect {
-   if(Test-Cloud) {
-      $Data = Get-AccountDetails
+Function Test-rsRackConnect {
+   if(Test-rsCloud) {
+      $Data = Get-rsAccountDetails
       if($Data.isRackConnect -and ($Data.currentRegion -eq $Data.defaultRegion)) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "The server is Rackconnect and is in the default region"
          $uri = $(("https://", $Data.currentRegion -join ''), ".api.rackconnect.rackspace.com/v1/automation_status?format=text" -join '')
@@ -272,13 +272,13 @@ Function Test-RackConnect {
    }
 }
 
-Function Test-Managed {
-   if(Test-Cloud) {
-      $Data = Get-AccountDetails
+Function Test-rsManaged {
+   if(Test-rsCloud) {
+      $Data = Get-rsAccountDetails
       if($isManaged -or (($defaultRegion -ne $currentRegion) -and $isRackConnect)) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Account is either managed or server is not in the default region isManaged $isManaged defaultRegion $defaultRegion Current region $currentRegion isRackConnect $isRackConnect starting to sleep"
          Start-Sleep -Seconds 60
-         if((Get-XenInfo -value "vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { 
+         if((Get-rsXenInfo -value "vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { 
             $exists = $true 
          }
          else { 
@@ -298,7 +298,7 @@ Function Test-Managed {
    }
 }
 
-Function Update-KnownHostsFile {
+Function Update-rsKnownHostsFile {
    $sshPaths = @("C:\Program Files (x86)\Git\.ssh", "C:\Windows\SysWOW64\config\systemprofile\.ssh", "C:\Windows\System32\config\systemprofile\.ssh")
    foreach($sshPath in $sshPaths) {
       if(!(Test-Path -Path $sshPath)) {
@@ -317,8 +317,8 @@ Function Update-KnownHostsFile {
    }
 }
 
-Function New-SSHKey {
-   if((Get-Role) -eq "Pull") {
+Function New-rsSSHKey {
+   if((Get-rsRole) -eq "Pull") {
       Start-Service Browser
       if(Test-Path -Path "C:\Program Files (x86)\Git\.ssh\id_rsa*") {
          Remove-Item "C:\Program Files (x86)\Git\.ssh\id_rsa*"
@@ -335,8 +335,8 @@ Function New-SSHKey {
    return
 }
    
-Function Push-SSHKey {
-   if((Get-Role) -eq "pull") {
+Function Push-rsSSHKey {
+   if((Get-rsRole) -eq "pull") {
       $keys = Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.gAPI)"} -ContentType application/json -Method GET
       $pullKeys = $keys | ? title -eq $($d.DDI, "_", $env:COMPUTERNAME -join '')
       if((($pullKeys).id).count -gt 0) {
@@ -354,7 +354,7 @@ Function Push-SSHKey {
    return
 }
 
-Function Update-GitConfig {
+Function Update-rsGitConfig {
    param (
       [string][ValidateSet('global', 'system')]$scope = 'system',
       [string]$attribute,
