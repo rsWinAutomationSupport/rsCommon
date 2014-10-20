@@ -83,21 +83,22 @@ Function Invoke-rsRestMethod {
    return $Data
 }
 Function New-rsEventLogSource {
-   param (
-      [string]$logSource
-   )
-   if($logSource -ne $null) {
-      if([System.Diagnostics.EventLog]::SourceExists($logSource)) {
-         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Create-EventLog was passed a null value for logsource"
-      }
-      if($logSource -eq $true) {
-         return
-      }
-      else {
-         New-EventLog -LogName "DevOps" -Source $logSource
-      }
-   }
-}
+  param (
+     [string]$logSource
+  )
+  if($logSource -ne $null) {
+     if([System.Diagnostics.EventLog]::SourceExists($logSource)) {
+        Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1002 -Message "Already Exists"
+     }
+     else {
+        New-EventLog -LogName "DevOps" -Source $logSource
+     }
+  }
+  else {
+   Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Create-EventLog was passed a null value for logsource"
+   return
+  }
+} 
 Function Get-rsXenInfo {
    param([string] $value)
    $base = gwmi -n root\wmi -cl CitrixXenStoreBase
@@ -347,11 +348,34 @@ Function Push-rsSSHKey {
       $sshKey = Get-Content -Path "C:\Program Files (x86)\Git\.ssh\id_rsa.pub"
       $json = @{"title" = "$($d.DDI, "_", $env:COMPUTERNAME -join '')"; "key" = "$sshKey"} | ConvertTo-Json
       Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.gAPI)"} -Body $json -ContentType application/json -Method Post
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "config --system user.email $serverName@localhost.local"
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "config --system user.name $serverName"
    }
    Stop-Service Browser
    return
+}
+
+Function Install-rsCertificates {
+   if(!(Test-Path -Path $($d.wD, $d.mR, "Certificates" -join '\'))) {
+      New-Item $($d.wD, $d.mR, "Certificates" -join '\') -ItemType Container
+   }
+   if((Get-Role) -eq "Pull") {
+      Start-Service Browser
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "pull origin $($d.br)"
+      Remove-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa*" -join '\') -Force
+      Write-Log -value "Installing Certificate"
+      Copy-Item -Path "C:\Program Files (x86)\Git\.ssh\id_rsa" -Destination $($d.wD, $d.mR, "Certificates\id_rsa.txt" -join '\') -Force
+      Copy-Item -Path "C:\Program Files (x86)\Git\.ssh\id_rsa.pub" -Destination $($d.wD, $d.mR, "Certificates\id_rsa.pub" -join '\') -Force
+      chdir $($d.wD, $d.mR -join '\')
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "add $($d.wD, $d.mR, "Certificates\id_rsa.txt" -join '\')"
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "add $($d.wD, $d.mR, "Certificates\id_rsa.pub" -join '\')"
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "commit -a -m `"pushing ssh keys`""
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "push origin $($d.br)"
+      Stop-Service Browser
+   }
+   if((Get-Role) -ne "Pull") {
+      Copy-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa.txt" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa'
+      Copy-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa.pub" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa.pub'
+      powershell.exe certutil -addstore -f root $($d.wD, $d.mR, "Certificates\PullServer.crt" -join '\')
+   }
 }
 
 Function Update-rsGitConfig {
@@ -367,9 +391,6 @@ Function Update-rsGitConfig {
       Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to update gitconfig file `n $($_.Exception.Message)"
    }
 }
-
-
-
 
 function Test-rsRegistryValue {
    
