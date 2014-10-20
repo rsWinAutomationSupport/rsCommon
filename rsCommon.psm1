@@ -276,8 +276,8 @@ Function Test-rsRackConnect {
 Function Test-rsManaged {
    if(Test-rsCloud) {
       $Data = Get-rsAccountDetails
-      if($isManaged -or (($defaultRegion -ne $currentRegion) -and $isRackConnect)) {
-         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Account is either managed or server is not in the default region isManaged $isManaged defaultRegion $defaultRegion Current region $currentRegion isRackConnect $isRackConnect starting to sleep"
+      if($isManaged -or (($Data.defaultRegion -ne $Data.currentRegion) -and $Data.isRackConnect)) {
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Account is either managed or server is not in the default region isManaged $Data.isManaged defaultRegion $Data.defaultRegion Current region $Data.currentRegion isRackConnect $isRackConnect starting to sleep"
          Start-Sleep -Seconds 60
          if((Get-rsXenInfo -value "vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { 
             $exists = $true 
@@ -357,7 +357,7 @@ Function Install-rsCertificates {
    if(!(Test-Path -Path $($d.wD, $d.mR, "Certificates" -join '\'))) {
       New-Item $($d.wD, $d.mR, "Certificates" -join '\') -ItemType Container
    }
-   if((Get-Role) -eq "Pull") {
+   if((Get-rsRole) -eq "Pull") {
       Start-Service Browser
       Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "pull origin $($d.br)"
       Remove-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa*" -join '\') -Force
@@ -371,7 +371,7 @@ Function Install-rsCertificates {
       Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "push origin $($d.br)"
       Stop-Service Browser
    }
-   if((Get-Role) -ne "Pull") {
+   if((Get-rsRole) -ne "Pull") {
       Copy-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa.txt" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa'
       Copy-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa.pub" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa.pub'
       powershell.exe certutil -addstore -f root $($d.wD, $d.mR, "Certificates\PullServer.crt" -join '\')
