@@ -366,4 +366,72 @@ Function Update-rsGitConfig {
    }
 }
 
+function Test-rsRegistryValue {
+   
+   param (
+      
+      [parameter(Mandatory=$true)]
+      [ValidateNotNullOrEmpty()]$Path,
+      
+      [parameter(Mandatory=$true)]
+      [ValidateNotNullOrEmpty()]$Value
+   )
+   
+   if(Test-Path $Path){
+      
+      try {
+         
+         Get-ItemProperty $Path -Name $Value -ErrorAction Stop | Out-Null
+         return $true
+         
+      }
+      
+      catch {
+         
+         return $false
+         
+      }
+      
+   }
+   else{return $false}
+}
 
+
+function Get-rsRegistryValue {
+   
+   param (
+      
+      [parameter(Mandatory=$true)]
+      [ValidateNotNullOrEmpty()]$Path,
+      
+      [parameter(Mandatory=$true)]
+      [ValidateNotNullOrEmpty()]$Value
+   )
+   
+   if(Test-Path $Path){
+      
+      try {
+         
+         Get-ItemProperty $Path -Name $Value -ErrorAction Stop | Select-Object -ExpandProperty $Value -ErrorAction Stop
+         
+      }
+      
+      catch {}
+      
+   }
+}
+
+<#
+
+Usage
+
+Test-rsRegistryValue returns boolean
+
+Test-rsRegistryValue -Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -Value "AUOptions"
+
+
+Get-rsRegistryValue returns the value
+
+Get-rsRegistryValue -Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -Value "AUOptions"
+
+#>
