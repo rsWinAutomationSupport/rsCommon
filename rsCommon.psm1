@@ -132,7 +132,7 @@ Function Test-rsCloud {
    }
 }
 Function Get-rsRole {
-   if(Test-Cloud) {
+   if(Test-rsCloud) {
       $Data = Get-rsXenInfo -value 'vm-data/provider_data/role'
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve role"
@@ -148,7 +148,7 @@ Function Get-rsRole {
    }
 }
 Function Get-rsRegion {
-   if(Test-Cloud) {
+   if(Test-rsCloud) {
       $Data = Get-rsXenInfo -value 'vm-data/provider_data/region'
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve region"
@@ -201,7 +201,7 @@ Function Get-rsPublicIp {
       [uint32]$retries = 5,
       [uint32]$timeOut = 15
    )
-   if(Test-Cloud) {
+   if(Test-rsCloud) {
       $catalog = Get-rsServiceCatalog
       $region = Get-rsRegion
       $i = 0
