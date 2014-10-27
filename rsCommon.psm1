@@ -88,7 +88,8 @@ Function New-rsEventLogSource {
   )
   if($logSource -ne $null) {
      if([System.Diagnostics.EventLog]::SourceExists($logSource)) {
-        Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1002 -Message "Already Exists"
+        Write-Verbose "$logsource already Exists."
+        #Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1002 -Message "$logsource already Exists."
      }
      else {
         New-EventLog -LogName "DevOps" -Source $logSource
