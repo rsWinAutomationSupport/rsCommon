@@ -46,10 +46,10 @@ Function Invoke-rsRestMethod {
          }
          catch {
             if(($error[0].Exception.Response.StatusCode.value__) -ge 500) {
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.Exception.Message) `n $($_.ErrorDetails.Message)"
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $Method`: $Uri `n $Body `n $($_.Exception.Message) `n $($_.ErrorDetails.Message)"
             }
             else {
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.Exception.Message) `n $($_.ErrorDetails.Message)"
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $Method`: $Uri `n $Body `n $($_.Exception.Message) `n $($_.ErrorDetails.Message)"
                break
             }
          }
@@ -60,10 +60,10 @@ Function Invoke-rsRestMethod {
          }
          catch {
             if(($error[0].Exception.Response.StatusCode.value__) -ge 500) {
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.Exception.Message) `n $($_.ErrorDetails.Message)"
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $Method`: $Uri `n $Body `n $($_.Exception.Message) `n $($_.ErrorDetails.Message)"
             }
             else {
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $($_.Exception.Message) `n $($_.ErrorDetails.Message)"
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $Method`: $Uri `n $Body `n $($_.Exception.Message) `n $($_.ErrorDetails.Message)"
                break
             }
          }
