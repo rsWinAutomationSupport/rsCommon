@@ -45,7 +45,7 @@ Function Invoke-rsRestMethod {
             $Data =  (Invoke-RestMethod -Uri $Uri -Method $Method.ToUpper() -Body $Body -Headers $Headers -ContentType $ContentType -ErrorAction SilentlyContinue)
          }
          catch {
-            if(($error[0].Exception.Response.StatusCode.value__) -ge 500) {
+            if( (($error[0].Exception.Response.StatusCode.value__) -ge 500) -or ($Error[0].Exception.Message -like "The remote name could not be resolved:*") ) {
                Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $Method`: $Uri `n $Body `n $($_.Exception.Message) `n $($_.ErrorDetails.Message)"
             }
             else {
@@ -59,7 +59,7 @@ Function Invoke-rsRestMethod {
             $Data =  (Invoke-RestMethod -Uri $Uri -Method $Method.ToUpper() -Headers $Headers -ContentType $ContentType -ErrorAction SilentlyContinue)
          }
          catch {
-            if(($error[0].Exception.Response.StatusCode.value__) -ge 500) {
+            if( (($error[0].Exception.Response.StatusCode.value__) -ge 500) -or ($Error[0].Exception.Message -like "The remote name could not be resolved:*") ) {
                Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "API call Failed `n $Method`: $Uri `n $Body `n $($_.Exception.Message) `n $($_.ErrorDetails.Message)"
             }
             else {
@@ -70,7 +70,7 @@ Function Invoke-rsRestMethod {
       }
       $i++
       if($Data -eq $null) {
-         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 10002 -Message "Failed API call trying again in $timeOuts seconds`n $($_.Exception.Message)"
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 10002 -Message "Failed API call trying again in $TimeOut seconds`n $($_.Exception.Message)"
          if($i -ge $Retries) {
             return $null
          }
