@@ -7,12 +7,13 @@ Function Get-rsSecrets {
    }
 }
 . (Get-rsSecrets)
+New-rsEventLogSource -logSource rsCommon
 
 if(Test-Path -Path "C:\DevOps\dedicated.csv") {
    $DedicatedData = Import-Csv -Path "C:\DevOps\dedicated.csv"
 }
-if(Test-Path -Path $($d.wD, $d.mR, 'PullServer.info' -join '\')) {
-   . "$($d.wD, $d.mR, 'PullServer.info' -join '\')"
+if(Test-Path -Path $($d.wD, $d.mR, 'PullServerinfo.ps1' -join '\')) {
+   . "$($d.wD, $d.mR, 'PullServerinfo.ps1' -join '\')"
 }
 
 Function Get-rsServiceCatalog {
@@ -108,19 +109,20 @@ Function Get-rsXenInfo {
    return $data
 }
 Function Get-rsDedicatedInfo {
-   param (
-      [string]$Value
-   )
+   . (Get-rsSecrets)
    if(Test-Path -Path $($d.wD, $d.mR, "dedicated.csv" -join '\')) {
       $Data = Import-Csv $($d.wD, $d.mR, "dedicated.csv" -join '\')
-      if($Data.$($Value) -ne $null) {
-         return $Data.$($Value)
-      }
-      else {
-         return $null
+      if(($Data) -ne $null) {
+         return $Data
       }
    }
-   return $Data.$($Value)
+   if((Test-Path -Path $($d.wD, "dedicated.csv" -join '\'))  -and (!(Test-Path -Path $($d.wD, $d.mR, "dedicated.csv" -join '\')))) {
+      $Data = Import-Csv $($d.wD, "dedicated.csv" -join '\')
+      if(($Data) -ne $null) {
+         return $Data
+      }
+   }
+   return $null
 }
 Function Test-rsCloud {
    $base = gwmi -n root\wmi -cl CitrixXenStoreBase -ErrorAction SilentlyContinue
@@ -132,22 +134,38 @@ Function Test-rsCloud {
    }
 }
 Function Get-rsRole {
+   param (
+      [string]$Value
+   )
    if(Test-rsCloud) {
-      $Data = Get-rsXenInfo -value 'vm-data/provider_data/role'
+      $Data = Get-rsXenInfo -value 'vm-data/user-metadata/rax_dsc_config'
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve role"
       }
-      return $Data
+      if($Data -eq "rsPullServer.ps1") {
+         return "pull"
+      }
+      else {
+         return $Data
+      }
    }
    else {
-      $Data = Get-rsDedicatedInfo -Value 'role'
+      $Data = Get-rsDedicatedInfo
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve role"
       }
-      return $Data
+      if((($Data | ? name -eq $Value).rax_dsc_config) -eq "rsPullServer.ps1") {
+         return "pull"
+      }
+      else {
+         return ($Data | ? name -eq $Value).rax_dsc_config
+      }
    }
 }
 Function Get-rsRegion {
+   param (
+      [string]$Value
+   )
    if(Test-rsCloud) {
       $Data = Get-rsXenInfo -value 'vm-data/provider_data/region'
       if($Data -eq $null) {
@@ -156,13 +174,31 @@ Function Get-rsRegion {
       return $Data
    }
    else {
-      $Data = Get-rsDedicatedInfo -Value 'region'
+      $Data = Get-rsDedicatedInfo
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve region"
       }
-      return $Data
+      return ($Data | ? name -eq $Value).region
    }
    
+}
+
+Function Get-rsPullServerName {
+   if(Test-rsCloud) {
+      . "$($d.wD, $d.mR, 'PullServerinfo.ps1' -join '\')"
+      $Data = $pullServerInfo.pullServerName
+      if($Data -eq $null) {
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve PullServerName"
+      }
+      return $Data
+   }
+   else {
+      $Data = Get-rsDedicatedInfo
+      if($Data -eq $null) {
+         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve role"
+      }
+      return ($Data | ? role -eq "pull").name
+   }
 }
 
 Function Get-rsFile {
@@ -196,14 +232,14 @@ Function Get-rsFile {
    return
 }
 
-Function Get-rsPublicIp {
+Function Get-rsAccessIPv4 {
    param (
       [uint32]$retries = 5,
       [uint32]$timeOut = 15
    )
    if(Test-rsCloud) {
       $catalog = Get-rsServiceCatalog
-      $region = Get-rsRegion
+      $region = Get-rsRegion -Value $env:COMPUTERNAME
       $i = 0
       $uri = (($catalog.access.serviceCatalog | ? name -eq "cloudServersOpenStack").endpoints | ? region -eq $region).publicURL
       do {
@@ -213,7 +249,11 @@ Function Get-rsPublicIp {
          }
          try {
             Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Retrieving Public address $accessIPv4"
-            $Data = (((Invoke-rsRestMethod -Retries $retries -TimeOut $timeOut -Uri $($uri, "servers/detail" -join '/') -Method GET -Headers @{"X-Auth-Token"=($catalog.access.token.id)} -ContentType application/json).servers) | ? { $_.name -eq $env:COMPUTERNAME}).accessIPv4
+            $Data = (((Invoke-rsRestMethod -Uri $($uri, "servers/detail" -join '/') -Retries $retries -TimeOut $timeOut -Method GET -Headers (Get-rsAuthToken) -ContentType application/json).servers) | ? { $_.name -eq $env:COMPUTERNAME}).accessIPv4
+            if($Data -ne $null) {
+               return $Data
+               
+            }
          }
          catch {
             Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "Failed to retrieve Public address, sleeping for $timeOut seconds then trying again. `n $($_.Exception.Message)"
@@ -232,7 +272,7 @@ Function Get-rsPublicIp {
    }
    else {
       if(Test-Path -Path $($d.wD, $d.mR, "dedicated.csv" -join '\')) {
-         $Data = (Import-Csv $($d.wD, $d.mR, "dedicated.csv" -join '\') | ? ServerName -eq $env:COMPUTERNAME).PublicIP
+         $Data = ((Get-rsDedicatedInfo) | ? name -eq $env:COMPUTERNAME).accessIPv4
       }
       return $Data
    }
@@ -247,7 +287,7 @@ Function Get-rsPublicIp {
 
 Function Get-rsAccountDetails {
    if(Test-rsCloud) {
-      $currentRegion = Get-rsRegion
+      $currentRegion = Get-rsRegion -Value $env:COMPUTERNAME
       $catalog = Get-rsServiceCatalog
       if(($catalog.access.user.roles | ? name -eq "rack_connect").id.count -gt 0) { $isRackConnect = $true } else { $isRackConnect = $false }
       if(($catalog.access.user.roles | ? name -eq "rax_managed").id.count -gt 0) { $isManaged = $true } else { $isManaged = $false } 
@@ -319,7 +359,7 @@ Function Update-rsKnownHostsFile {
 }
 
 Function New-rsSSHKey {
-   if((Get-rsRole) -eq "Pull") {
+   if((Get-rsRole -Value $env:COMPUTERNAME) -eq "Pull") {
       Start-Service Browser
       if(Test-Path -Path "C:\Program Files (x86)\Git\.ssh\id_rsa*") {
          Remove-Item "C:\Program Files (x86)\Git\.ssh\id_rsa*"
@@ -337,7 +377,7 @@ Function New-rsSSHKey {
 }
    
 Function Push-rsSSHKey {
-   if((Get-rsRole) -eq "pull") {
+   if((Get-rsRole -Value $env:COMPUTERNAME) -eq "pull") {
       $keys = Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.gAPI)"} -ContentType application/json -Method GET
       $pullKeys = $keys | ? title -eq $($d.DDI, "_", $env:COMPUTERNAME -join '')
       if((($pullKeys).id).count -gt 0) {
@@ -347,7 +387,7 @@ Function Push-rsSSHKey {
       }
       $sshKey = Get-Content -Path "C:\Program Files (x86)\Git\.ssh\id_rsa.pub"
       $json = @{"title" = "$($d.DDI, "_", $env:COMPUTERNAME -join '')"; "key" = "$sshKey"} | ConvertTo-Json
-      Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.gAPI)"} -Body $json -ContentType application/json -Method Post
+      Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.gAPI)"} -Body $json -ContentType application/json -Method POST
    }
    Stop-Service Browser
    return
@@ -357,7 +397,7 @@ Function Install-rsCertificates {
    if(!(Test-Path -Path $($d.wD, $d.mR, "Certificates" -join '\'))) {
       New-Item $($d.wD, $d.mR, "Certificates" -join '\') -ItemType Container
    }
-   if((Get-rsRole) -eq "Pull") {
+   if((Get-rsRole -Value $env:COMPUTERNAME) -eq "Pull") {
       Start-Service Browser
       Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "pull origin $($d.br)"
       Remove-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa*" -join '\') -Force
@@ -371,7 +411,7 @@ Function Install-rsCertificates {
       Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "push origin $($d.br)"
       Stop-Service Browser
    }
-   if((Get-rsRole) -ne "Pull") {
+   if((Get-rsRole -Value $env:COMPUTERNAME) -ne "Pull") {
       Copy-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa.txt" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa'
       Copy-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa.pub" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa.pub'
       powershell.exe certutil -addstore -f root $($d.wD, $d.mR, "Certificates\PullServer.crt" -join '\')
@@ -392,72 +432,14 @@ Function Update-rsGitConfig {
    }
 }
 
-function Test-rsRegistryValue {
-   
-   param (
-      
-      [parameter(Mandatory=$true)]
-      [ValidateNotNullOrEmpty()]$Path,
-      
-      [parameter(Mandatory=$true)]
-      [ValidateNotNullOrEmpty()]$Value
-   )
-   
-   if(Test-Path $Path){
-      
-      try {
-         
-         Get-ItemProperty $Path -Name $Value -ErrorAction Stop | Out-Null
-         return $true
-         
-      }
-      
-      catch {
-         
-         return $false
-         
-      }
-      
+Function Get-rsCloudServersInfo
+{
+   $catalog = Get-rsServiceCatalog
+   $endpoints = ($catalog.access.serviceCatalog | ? name -eq "cloudServersOpenStack").endpoints.publicURL
+   foreach( $endpoint in $endpoints )
+   {
+      $temp = (Invoke-rsRestMethod -Uri $($endpoint,"servers/detail" -join "/") -Method GET -Headers $(Get-rsAuthToken) -ContentType application/json)
+      $servers = $servers,$temp
    }
-   else{return $false}
-}
-
-
-function Get-rsRegistryValue {
-   
-   param (
-      
-      [parameter(Mandatory=$true)]
-      [ValidateNotNullOrEmpty()]$Path,
-      
-      [parameter(Mandatory=$true)]
-      [ValidateNotNullOrEmpty()]$Value
-   )
-   
-   if(Test-Path $Path){
-      
-      try {
-         
-         Get-ItemProperty $Path -Name $Value -ErrorAction Stop | Select-Object -ExpandProperty $Value -ErrorAction Stop
-         
-      }
-      
-      catch {}
-      
-   }
-}
-
-<#
-
-Usage
-
-Test-rsRegistryValue returns boolean
-
-Test-rsRegistryValue -Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -Value "AUOptions"
-
-
-Get-rsRegistryValue returns the value
-
-Get-rsRegistryValue -Path "HKLM:\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -Value "AUOptions"
-
-#>
+   return ( ($servers.servers | ? {@("Deleted", "Error", "Unknown") -notcontains $_.status}) )
+} 
