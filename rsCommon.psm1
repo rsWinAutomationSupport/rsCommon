@@ -83,22 +83,21 @@ Function Invoke-rsRestMethod {
    return $Data
 }
 Function New-rsEventLogSource {
-  param (
-     [string]$logSource
-  )
-  if($logSource -ne $null) {
-     if([System.Diagnostics.EventLog]::SourceExists($logSource)) {
-        Write-Verbose "$logsource already Exists."
-        #Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1002 -Message "$logsource already Exists."
-     }
-     else {
-        New-EventLog -LogName "DevOps" -Source $logSource
-     }
-  }
-  else {
-   Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Create-EventLog was passed a null value for logsource"
-   return
-  }
+   param (
+      [string]$logSource
+   )
+   if($logSource -ne $null) {
+      if([System.Diagnostics.EventLog]::SourceExists($logSource)) {
+         return
+      }
+      else {
+         New-EventLog -LogName "DevOps" -Source $logSource
+      }
+   }
+   else {
+      Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Create-EventLog was passed a null value for logsource"
+      return
+   }
 } 
 Function Get-rsXenInfo {
    param([string] $value)
