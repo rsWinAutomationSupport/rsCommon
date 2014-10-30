@@ -2,9 +2,6 @@ Function Get-rsSecrets {
    if(Test-Path -Path "C:\DevOps\secrets.ps1") {
       return "C:\DevOps\secrets.ps1"
    }
-   if(Test-Path -Path "C:\cloud-automation\secrets.ps1") {
-      return "C:\cloud-automation\secrets.ps1"
-   }
 }
 . (Get-rsSecrets)
 New-rsEventLogSource -logSource rsCommon
