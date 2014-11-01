@@ -9,12 +9,12 @@ New-rsEventLogSource -logSource rsCommon
 if(Test-Path -Path "C:\DevOps\dedicated.csv") {
    $DedicatedData = Import-Csv -Path "C:\DevOps\dedicated.csv"
 }
-if(Test-Path -Path $($d.wD, $d.mR, 'PullServerinfo.ps1' -join '\')) {
-   . "$($d.wD, $d.mR, 'PullServerinfo.ps1' -join '\')"
+if(Test-Path -Path $("C:\DevOps", $d.mR, 'PullServerinfo.ps1' -join '\')) {
+   . "$("C:\DevOps", $d.mR, 'PullServerinfo.ps1' -join '\')"
 }
 
 Function Get-rsServiceCatalog {
-   return (Invoke-rsRestMethod -Retries 20 -TimeOut 15 -Uri $("https://identity.api.rackspacecloud.com/v2.0/tokens") -Method POST -Body $(@{"auth" = @{"RAX-KSKEY:apiKeyCredentials" = @{"username" = $($d.cU); "apiKey" = $($d.cAPI)}}} | convertTo-Json) -ContentType application/json)
+   return (Invoke-rsRestMethod -Retries 20 -TimeOut 15 -Uri $("https://identity.api.rackspacecloud.com/v2.0/tokens") -Method POST -Body $(@{"auth" = @{"RAX-KSKEY:apiKeyCredentials" = @{"username" = $($d.rs_username); "apiKey" = $($d.rs_apikey)}}} | convertTo-Json) -ContentType application/json)
 }
 
 Function Get-rsAuthToken {
@@ -107,14 +107,14 @@ Function Get-rsXenInfo {
 }
 Function Get-rsDedicatedInfo {
    . (Get-rsSecrets)
-   if(Test-Path -Path $($d.wD, $d.mR, "dedicated.csv" -join '\')) {
-      $Data = Import-Csv $($d.wD, $d.mR, "dedicated.csv" -join '\')
+   if(Test-Path -Path $("C:\DevOps", $d.mR, "dedicated.csv" -join '\')) {
+      $Data = Import-Csv $("C:\DevOps", $d.mR, "dedicated.csv" -join '\')
       if(($Data) -ne $null) {
          return $Data
       }
    }
-   if((Test-Path -Path $($d.wD, "dedicated.csv" -join '\'))  -and (!(Test-Path -Path $($d.wD, $d.mR, "dedicated.csv" -join '\')))) {
-      $Data = Import-Csv $($d.wD, "dedicated.csv" -join '\')
+   if((Test-Path -Path "C:\DevOps\dedicated.csv")  -and (!(Test-Path -Path $("C:\DevOps", $d.mR, "dedicated.csv" -join '\')))) {
+      $Data = Import-Csv "C:\DevOps\dedicated.csv"
       if(($Data) -ne $null) {
          return $Data
       }
@@ -182,7 +182,7 @@ Function Get-rsRegion {
 
 Function Get-rsPullServerName {
    if(Test-rsCloud) {
-      . "$($d.wD, $d.mR, 'PullServerinfo.ps1' -join '\')"
+      . "$("C:\DevOps", $d.mR, 'PullServerinfo.ps1' -join '\')"
       $Data = $pullServerInfo.pullServerName
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve PullServerName"
@@ -268,7 +268,7 @@ Function Get-rsAccessIPv4 {
       }
    }
    else {
-      if(Test-Path -Path $($d.wD, $d.mR, "dedicated.csv" -join '\')) {
+      if(Test-Path -Path $("C:\DevOps", $d.mR, "dedicated.csv" -join '\')) {
          $Data = ((Get-rsDedicatedInfo) | ? name -eq $env:COMPUTERNAME).accessIPv4
       }
       return $Data
@@ -376,42 +376,42 @@ Function New-rsSSHKey {
 Function Push-rsSSHKey {
    if((Get-rsRole -Value $env:COMPUTERNAME) -eq "pull") {
       $keys = Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.gAPI)"} -ContentType application/json -Method GET
-      $pullKeys = $keys | ? title -eq $($d.DDI, "_", $env:COMPUTERNAME -join '')
+      $pullKeys = $keys | ? title -eq $($d.rs_DDI, "_", $env:COMPUTERNAME -join '')
       if((($pullKeys).id).count -gt 0) {
          foreach($pullKey in $pullKeys) {
-            Invoke-rsRestMethod -Uri $("https://api.github.com/user/keys", $pullKey.id -join '/') -Headers @{"Authorization" = "token $($d.gAPI)"} -ContentType application/json -Method DELETE
+            Invoke-rsRestMethod -Uri $("https://api.github.com/user/keys", $pullKey.id -join '/') -Headers @{"Authorization" = "token $($d.git_Oauthtoken)"} -ContentType application/json -Method DELETE
          }
       }
       $sshKey = Get-Content -Path "C:\Program Files (x86)\Git\.ssh\id_rsa.pub"
-      $json = @{"title" = "$($d.DDI, "_", $env:COMPUTERNAME -join '')"; "key" = "$sshKey"} | ConvertTo-Json
-      Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.gAPI)"} -Body $json -ContentType application/json -Method POST
+      $json = @{"title" = "$($d.rs_DDI, "_", $env:COMPUTERNAME -join '')"; "key" = "$sshKey"} | ConvertTo-Json
+      Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.git_Oauthtoken)"} -Body $json -ContentType application/json -Method POST
    }
    Stop-Service Browser
    return
 }
 
 Function Install-rsCertificates {
-   if(!(Test-Path -Path $($d.wD, $d.mR, "Certificates" -join '\'))) {
-      New-Item $($d.wD, $d.mR, "Certificates" -join '\') -ItemType Container
+   if(!(Test-Path -Path $("C:\DevOps", $d.mR, "Certificates" -join '\'))) {
+      New-Item $("C:\DevOps", $d.mR, "Certificates" -join '\') -ItemType Container
    }
    if((Get-rsRole -Value $env:COMPUTERNAME) -eq "Pull") {
       Start-Service Browser
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "pull origin $($d.br)"
-      Remove-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa*" -join '\') -Force
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "pull origin $($d.branch_rsConfigs)"
+      Remove-Item -Path $("C:\DevOps", $d.mR, "Certificates\id_rsa*" -join '\') -Force
       Write-Log -value "Installing Certificate"
-      Copy-Item -Path "C:\Program Files (x86)\Git\.ssh\id_rsa" -Destination $($d.wD, $d.mR, "Certificates\id_rsa.txt" -join '\') -Force
-      Copy-Item -Path "C:\Program Files (x86)\Git\.ssh\id_rsa.pub" -Destination $($d.wD, $d.mR, "Certificates\id_rsa.pub" -join '\') -Force
+      Copy-Item -Path "C:\Program Files (x86)\Git\.ssh\id_rsa" -Destination $("C:\DevOps", $d.mR, "Certificates\id_rsa.txt" -join '\') -Force
+      Copy-Item -Path "C:\Program Files (x86)\Git\.ssh\id_rsa.pub" -Destination $("C:\DevOps", $d.mR, "Certificates\id_rsa.pub" -join '\') -Force
       chdir $($d.wD, $d.mR -join '\')
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "add $($d.wD, $d.mR, "Certificates\id_rsa.txt" -join '\')"
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "add $($d.wD, $d.mR, "Certificates\id_rsa.pub" -join '\')"
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "add $("C:\DevOps", $d.mR, "Certificates\id_rsa.txt" -join '\')"
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "add $("C:\DevOps", $d.mR, "Certificates\id_rsa.pub" -join '\')"
       Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "commit -a -m `"pushing ssh keys`""
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "push origin $($d.br)"
+      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "push origin $($d.branch_rsConfigs)"
       Stop-Service Browser
    }
    if((Get-rsRole -Value $env:COMPUTERNAME) -ne "Pull") {
-      Copy-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa.txt" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa'
-      Copy-Item -Path $($d.wD, $d.mR, "Certificates\id_rsa.pub" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa.pub'
-      powershell.exe certutil -addstore -f root $($d.wD, $d.mR, "Certificates\PullServer.crt" -join '\')
+      Copy-Item -Path $("C:\DevOps", $d.mR, "Certificates\id_rsa.txt" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa'
+      Copy-Item -Path $("C:\DevOps", $d.mR, "Certificates\id_rsa.pub" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa.pub'
+      powershell.exe certutil -addstore -f root $("C:\DevOps", $d.mR, "Certificates\PullServer.crt" -join '\')
    }
 }
 
