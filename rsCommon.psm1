@@ -4,7 +4,6 @@ Function Get-rsSecrets {
    }
 }
 . (Get-rsSecrets)
-New-rsEventLogSource -logSource rsCommon
 
 if(Test-Path -Path "C:\DevOps\dedicated.csv") {
    $DedicatedData = Import-Csv -Path "C:\DevOps\dedicated.csv"
@@ -20,6 +19,26 @@ Function Get-rsServiceCatalog {
 Function Get-rsAuthToken {
    return @{"X-Auth-Token"=((Get-rsServiceCatalog).access.token.id)}
 }
+
+Function New-rsEventLogSource {
+   param (
+      [string]$logSource
+   )
+   if($logSource -ne $null) {
+      if([System.Diagnostics.EventLog]::SourceExists($logSource)) {
+         return
+      }
+      else {
+         New-EventLog -LogName "DevOps" -Source $logSource
+      }
+   }
+   else {
+      Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Create-EventLog was passed a null value for logsource"
+      return
+   }
+}
+
+New-rsEventLogSource -logSource rsCommon
 
 Function Invoke-rsRestMethod {
    param (
