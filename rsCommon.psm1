@@ -394,7 +394,7 @@ Function New-rsSSHKey {
    
 Function Push-rsSSHKey {
    if((Get-rsRole -Value $env:COMPUTERNAME) -eq "pull") {
-      $keys = Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.gAPI)"} -ContentType application/json -Method GET
+      $keys = Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.git_Oauthtoken)"} -ContentType application/json -Method GET
       $pullKeys = $keys | ? title -eq $($d.rs_DDI, "_", $env:COMPUTERNAME -join '')
       if((($pullKeys).id).count -gt 0) {
          foreach($pullKey in $pullKeys) {
