@@ -314,28 +314,40 @@ Function Get-rsAccountDetails {
 }
 
 Function Test-rsRackConnect {
-   if(Test-rsCloud) {
-      $Data = Get-rsAccountDetails
-      if($Data.isRackConnect -and ($Data.currentRegion -eq $Data.defaultRegion)) {
-         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "The server is Rackconnect and is in the default region"
-         $uri = $(("https://", $Data.currentRegion -join ''), ".api.rackconnect.rackspace.com/v1/automation_status?format=text" -join '')
-         do {
-            $rcStatus = Invoke-rsRestMethod -Uri $uri -Method GET -ContentType application/json
+   if((Get-rsRole -Value $env:COMPUTERNAME) -eq "pull") {
+      if(Test-rsCloud) {
+         $Data = Get-rsAccountDetails
+         if($Data.isRackConnect -and ($Data.currentRegion -eq $Data.defaultRegion)) {
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "The server is Rackconnect and is in the default region"
+            $uri = $(("https://", $Data.currentRegion -join ''), ".api.rackconnect.rackspace.com/v1/automation_status?format=text" -join '')
+            do {
+               $rcStatus = Invoke-rsRestMethod -Uri $uri -Method GET -ContentType application/json
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
+               Start-Sleep -Seconds 10
+            }
+            while(@("DEPLOYED", "FAILED") -notcontains $rcStatus)
             Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
-            Start-Sleep -Seconds 10
          }
-         while ($rcStatus -ne "DEPLOYED")
-         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
+      }
+   }
+   else {
+      if(Test-rsCloud) {
+         if(((Get-rsXenInfo -value "vm-data/user-metadata/rackconnect_automation_status").count) -gt 0) {
+            do {
+               $rcStatus = Get-rsXenInfo -value "vm-data/user-metadata/rackconnect_automation_status"
+               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
+               Start-Sleep -Seconds 10
+            }
+            while(@("DEPLOYED", "FAILED") -notcontains $rcStatus)
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
+         }
       }
    }
 }
 
 Function Test-rsManaged {
-   if(Test-rsCloud) {
-      $Data = Get-rsAccountDetails
-      if($isManaged -or (($Data.defaultRegion -ne $Data.currentRegion) -and $Data.isRackConnect)) {
-         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Account is either managed or server is not in the default region isManaged $Data.isManaged defaultRegion $Data.defaultRegion Current region $Data.currentRegion isRackConnect $isRackConnect starting to sleep"
-         Start-Sleep -Seconds 60
+   if((Get-rsRole -Value $env:COMPUTERNAME) -eq "pull") {
+      if(Test-rsCloud) {
          if((Get-rsXenInfo -value "vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { 
             $exists = $true 
          }
