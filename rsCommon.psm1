@@ -394,6 +394,7 @@ Function New-rsSSHKey {
    
 Function Push-rsSSHKey {
    if((Get-rsRole -Value $env:COMPUTERNAME) -eq "pull") {
+      start-service Browser
       $keys = Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.git_Oauthtoken)"} -ContentType application/json -Method GET
       $pullKeys = $keys | ? title -eq $($d.rs_DDI, "_", $env:COMPUTERNAME -join '')
       if((($pullKeys).id).count -gt 0) {
@@ -404,8 +405,8 @@ Function Push-rsSSHKey {
       $sshKey = Get-Content -Path "C:\Program Files (x86)\Git\.ssh\id_rsa.pub"
       $json = @{"title" = "$($d.rs_DDI, "_", $env:COMPUTERNAME -join '')"; "key" = "$sshKey"} | ConvertTo-Json
       Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.git_Oauthtoken)"} -Body $json -ContentType application/json -Method POST
+      Stop-Service Browser
    }
-   Stop-Service Browser
    return
 }
 
