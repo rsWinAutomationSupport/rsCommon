@@ -43,15 +43,16 @@ New-rsEventLogSource -logSource rsCommon
 Function Invoke-rsRestMethod {
    param (
       [string][ValidateNotNull()]$Uri,
-      [string][ValidateSet('GET', 'PUT', 'POST', 'DELETE', ignorecase=$False)]$Method,
+      [string][ValidateSet('GET', 'PUT', 'POST', 'DELETE', ignorecase=$true)]$Method,
       [string]$Body,
       [hashtable]$Headers,
-      [string][ValidateSet('application/json', 'application/xml', ignorecase=$False)]$ContentType = "application/json",
+      [string][ValidateSet('application/json', 'application/xml', ignorecase=$true)]$ContentType = "application/json",
       [uint32]$Retries = 2,
       [uint32]$TimeOut = 10
       
    )
    $i = 0
+   $ContentType = $ContentType.ToLower()
    do {
       if($i -ge $Retries) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve service catalog, reached maximum retries"
