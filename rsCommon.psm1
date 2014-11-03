@@ -235,7 +235,7 @@ Function Get-rsFile {
       try {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Attempting to download $url."
          $webclient.DownloadFile($url,$path)
-         if(Test-Path -Path $path -eq $true) {
+         if((Test-Path -Path $path) -eq $true) {
             $i = $retries
          }
       }
