@@ -40,6 +40,18 @@ Function New-rsEventLogSource {
 
 New-rsEventLogSource -logSource rsCommon
 
+Function Get-rsDetailsServers
+{
+   $catalog = Get-rsServiceCatalog
+   $endpoints = ($catalog.access.serviceCatalog | ? name -eq "cloudServersOpenStack").endpoints.publicURL
+   foreach( $endpoint in $endpoints )
+   {
+      $temp = (Invoke-rsRestMethod -Uri $($endpoint,"servers/detail" -join "/") -Method GET -Headers $(Get-rsAuthToken) -ContentType application/json)
+      $servers = $servers,$temp
+   }
+   return ( ($servers.servers | ? {@("Deleted", "Error", "Unknown") -notcontains $_.status}) )
+}
+
 Function Invoke-rsRestMethod {
    param (
       [string][ValidateNotNull()]$Uri,
