@@ -473,3 +473,44 @@ Function Get-rsCloudServersInfo
    }
    return ( ($servers.servers | ? {@("Deleted", "Error", "Unknown") -notcontains $_.status}) )
 } 
+Function Decrypt-Credentials
+{
+   param(
+      [Parameter(Mandatory=$true)]
+      [string]$DatabagName
+   )
+   . (Get-rsSecrets)
+   
+   $filePath = ("C:\DevOps", $d.mR, "$DatabagName.json" -join "\")
+   If ( -not (Test-Path -Path $filePath))
+   {
+      exit
+   }
+   
+   $encryptedObjects = [System.IO.File]::ReadAllText($filePath) | ConvertFrom-Json
+   
+   $credHT = New-Object 'System.Collections.Generic.Dictionary[string,pscredential]'
+   foreach ( $Name in ($encryptedObjects | Get-Member -MemberType Properties).Name )
+   {
+      $item = $encryptedObjects.$Name
+      $decryptCert = Get-ChildItem Cert:\LocalMachine\My\ | Where-Object { $_.Thumbprint -eq [System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($item.Thumbprint)) }
+      If ( -not $decryptCert ) 
+      { 
+         Write-Host "Certificate with Thumbprint $Thumbprint could not be found. Skipping."
+         Continue
+      }
+      
+      try
+      {
+         
+         $key = $decryptCert.PrivateKey.Decrypt([System.Convert]::FromBase64String($item.encrypted_key), $true)
+         $secString = ConvertTo-SecureString -String $item.encrypted_data -Key $key
+      }
+      finally
+      {
+         if ($key) { [array]::Clear($key, 0, $key.Length) }
+      }
+      $credHT[$Name] = New-Object pscredential($Name, $secString)
+   }
+   return $credHT
+}
