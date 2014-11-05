@@ -183,11 +183,11 @@ Function Get-rsRole {
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve role"
       }
-      if((($Data | ? name -eq $Value).rax_dsc_config) -eq "rsPullServer.ps1") {
+      if((($Data | ? {$_.name -eq $Value}).rax_dsc_config) -eq "rsPullServer.ps1") {
          return "pull"
       }
       else {
-         return ($Data | ? name -eq $Value).rax_dsc_config
+         return ($Data | ? {$_.name -eq $Value}).rax_dsc_config
       }
    }
 }
