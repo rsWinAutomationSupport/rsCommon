@@ -496,7 +496,7 @@ Function Decrypt-Credentials
    $filePath = ("C:\DevOps", $d.mR, "$DatabagName.json" -join "\")
    If ( -not (Test-Path -Path $filePath))
    {
-      exit
+      return $null
    }
    
    $encryptedObjects = [System.IO.File]::ReadAllText($filePath) | ConvertFrom-Json
