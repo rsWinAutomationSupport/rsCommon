@@ -485,7 +485,7 @@ Function Get-rsCloudServersInfo
    }
    return ( ($servers.servers | ? { @("Deleted", "Error", "Unknown") -notcontains $_.status} ) )
 } 
-Function Convert-Credentials
+Function Decrypt-Credentials
 {
    param(
       [Parameter(Mandatory=$true)]
