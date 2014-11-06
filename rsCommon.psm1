@@ -207,7 +207,7 @@ Function Get-rsRegion {
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve region"
       }
-      return ($Data | ? name -eq $Value).region
+      return ($Data | ? { $_.name -eq $Value} ).region
    }
    
 }
@@ -226,7 +226,7 @@ Function Get-rsPullServerName {
       if($Data -eq $null) {
          Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to retrieve role"
       }
-      return ($Data | ? role -eq "pull").name
+      return ($Data | ? { $_.role -eq "pull"} ).name
    }
 }
 
@@ -301,7 +301,7 @@ Function Get-rsAccessIPv4 {
    }
    else {
       if(Test-Path -Path $("C:\DevOps", $d.mR, "dedicated.csv" -join '\')) {
-         $Data = ((Get-rsDedicatedInfo) | ? name -eq $env:COMPUTERNAME).accessIPv4
+         $Data = ((Get-rsDedicatedInfo) | ? { $_.name -eq $env:COMPUTERNAME} ).accessIPv4
       }
       return $Data
    }
@@ -483,7 +483,7 @@ Function Get-rsCloudServersInfo
       $temp = (Invoke-rsRestMethod -Uri $($endpoint,"servers/detail" -join "/") -Method GET -Headers $(Get-rsAuthToken) -ContentType application/json)
       $servers = $servers,$temp
    }
-   return ( ($servers.servers | ? {@("Deleted", "Error", "Unknown") -notcontains $_.status}) )
+   return ( ($servers.servers | ? { @("Deleted", "Error", "Unknown") -notcontains $_.status} ) )
 } 
 Function Decrypt-Credentials
 {
