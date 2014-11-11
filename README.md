@@ -6,7 +6,9 @@ To use:
 Clone to directory<br>
 C:\Program Files\WindowsPowerShell\Modules\
 
+```Posh
 Import-Module rsCommon
+```Posh
 
 Get-Command -Module rsCommon
 
