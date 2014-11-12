@@ -326,58 +326,41 @@ Function Get-rsAccountDetails {
 }
 
 Function Test-rsRackConnect {
-   if((Get-rsRole -Value $env:COMPUTERNAME) -eq "pull") {
-      if(Test-rsCloud) {
-         $Data = Get-rsAccountDetails
-         if($Data.isRackConnect -and ($Data.currentRegion -eq $Data.defaultRegion)) {
-            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "The server is Rackconnect and is in the default region"
-            $uri = $(("https://", $Data.currentRegion -join ''), ".api.rackconnect.rackspace.com/v1/automation_status?format=text" -join '')
-            do {
-               $rcStatus = Invoke-rsRestMethod -Uri $uri -Method GET -ContentType application/json
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
-               Start-Sleep -Seconds 10
-            }
-            while(@("DEPLOYED", "FAILED") -notcontains $rcStatus)
+    if(Test-rsCloud) {
+        $Data = Get-rsAccountDetails
+        if($Data.isRackConnect -and ($Data.currentRegion -eq $Data.defaultRegion)) {
+        Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "The server is Rackconnect and is in the default region"
+        $uri = $(("https://", $Data.currentRegion -join ''), ".api.rackconnect.rackspace.com/v1/automation_status?format=text" -join '')
+        do {
+            $rcStatus = Invoke-rsRestMethod -Uri $uri -Method GET -ContentType application/json
             Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
-         }
-      }
-   }
-   else {
-      if(Test-rsCloud) {
-         if(((Get-rsXenInfo -value "vm-data/user-metadata/rackconnect_automation_status").count) -gt 0) {
-            do {
-               $rcStatus = Get-rsXenInfo -value "vm-data/user-metadata/rackconnect_automation_status"
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
-               Start-Sleep -Seconds 10
-            }
-            while(@("DEPLOYED", "FAILED") -notcontains $rcStatus)
-            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
-         }
-      }
-   }
+            Start-Sleep -Seconds 10
+        }
+        while(@("DEPLOYED", "FAILED") -notcontains $rcStatus)
+        Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "RackConnect status is: $rcStatus"
+        }
+    }
 }
 
 Function Test-rsManaged {
-   if((Get-rsRole -Value $env:COMPUTERNAME) -eq "pull") {
-      if(Test-rsCloud) {
-         if((Get-rsXenInfo -value "vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { 
+    if(Test-rsCloud) {
+        if((Get-rsXenInfo -value "vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { 
             $exists = $true 
-         }
-         else { 
+        }
+        else { 
             $exists = $false 
             Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation is not completed."
-         } 
-         if ( $exists )
-         {
-            do {
-               Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Waiting for rax_service_level_automation."
-               Start-Sleep -Seconds 30
-            }
-            while ( (Test-Path "C:\Windows\Temp\rs_managed_cloud_automation_complete.txt" ) -eq $false)
-            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation complete."
-         }
-      } 
-   }
+        } 
+        if ( $exists )
+        {
+        do {
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Waiting for rax_service_level_automation."
+            Start-Sleep -Seconds 30
+        }
+        while ( (Test-Path "C:\Windows\Temp\rs_managed_cloud_automation_complete.txt" ) -eq $false)
+        Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation complete."
+        }
+    } 
 }
 
 Function Update-rsKnownHostsFile {
