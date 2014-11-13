@@ -354,7 +354,7 @@ Function Test-rsManaged {
         }
         else { 
             $exists = $false 
-            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation is not completed."
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Testing for rax_service_level_automation."
         } 
         if ( $exists )
         {
