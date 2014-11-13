@@ -5,9 +5,6 @@ Function Get-rsSecrets {
 }
 . (Get-rsSecrets)
 
-if(Test-Path -Path "C:\DevOps\dedicated.csv") {
-   $DedicatedData = Import-Csv -Path "C:\DevOps\dedicated.csv"
-}
 if(Test-Path -Path $("C:\DevOps", $d.mR, 'PullServerinfo.ps1' -join '\')) {
    . "$("C:\DevOps", $d.mR, 'PullServerinfo.ps1' -join '\')"
 }
@@ -317,10 +314,18 @@ Function Get-rsAccessIPv4 {
 Function Get-rsAccountDetails {
    if(Test-rsCloud) {
       $currentRegion = Get-rsRegion -Value $env:COMPUTERNAME
-      $catalog = Get-rsServiceCatalog
-      if(($catalog.access.user.roles | ? name -eq "rack_connect").id.count -gt 0) { $isRackConnect = $true } else { $isRackConnect = $false }
-      if(($catalog.access.user.roles | ? name -eq "rax_managed").id.count -gt 0) { $isManaged = $true } else { $isManaged = $false } 
-      $defaultRegion = $catalog.access.user.'RAX-AUTH:defaultRegion'
+      if ((Get-rsRole -value $env:COMPUTERNAME) -eq 'pull'){
+          $catalog = Get-rsServiceCatalog
+          if(($catalog.access.user.roles | ? name -eq "rack_connect").id.count -gt 0) { $isRackConnect = $true } else { $isRackConnect = $false }
+          if(($catalog.access.user.roles | ? name -eq "rax_managed").id.count -gt 0) { $isManaged = $true } else { $isManaged = $false } 
+          $defaultRegion = $catalog.access.user.'RAX-AUTH:defaultRegion'
+      }
+      else {
+        $currentRegion = Get-rsRegion -Value $env:COMPUTERNAME
+        $isRackConnect = $($pullServerInfo.isRackConnect)
+        $isManaged = $($pullServerInfo.isManaged)
+        $defaultRegion = $($pullServerInfo.defaultRegion)
+      }
       return @{"currentRegion" = $currentRegion; "isRackConnect" = $isRackConnect; "isManaged" = $isManaged; "defaultRegion" = $defaultRegion}
    }
 }
@@ -349,7 +354,7 @@ Function Test-rsManaged {
         }
         else { 
             $exists = $false 
-            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation is not completed."
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Testing for rax_service_level_automation."
         } 
         if ( $exists )
         {
