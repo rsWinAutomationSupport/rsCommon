@@ -516,3 +516,30 @@ Function Unlock-Credentials
    }
    return $credHT
 }
+Function Test-rsHash
+{
+   param (
+      [String] $file,
+      [String] $hash
+   )
+   if ( !(Test-Path $hash) ){
+      return $false
+   }
+   if( (Get-FileHash $file).hash -eq (Import-Csv $hash).hash){
+      return $true
+   }
+   if( (Get-FileHash $file).hash -eq (Import-Csv $hash)){
+      return $true
+   }
+   else {
+      return $false
+   }
+}
+Function Set-rsHash
+{
+   param (
+      [String] $file,
+      [String] $hash
+   )
+   Set-Content -Path $hash -Value (Get-FileHash -Path $file | ConvertTo-Csv)
+}
