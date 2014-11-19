@@ -368,86 +368,6 @@ Function Test-rsManaged {
     } 
 }
 
-Function Update-rsKnownHostsFile {
-   $sshPaths = @("C:\Program Files (x86)\Git\.ssh", "C:\Windows\SysWOW64\config\systemprofile\.ssh", "C:\Windows\System32\config\systemprofile\.ssh")
-   foreach($sshPath in $sshPaths) {
-      if(!(Test-Path -Path $sshPath)) {
-         try {
-            New-Item -Path $sshPath -ItemType container
-         }
-         catch {
-            Write-EventLog -LogName DevOps -Source BasePrep -EntryType Error -EventId 1002 -Message "Failed to create directory $sshPath `n $($_.Execption.Message)"
-         }
-      }
-      New-Item $($sshPath, "known_hosts" -join '\') -ItemType File -Force
-      Add-Content $($sshPath, "known_hosts" -join '\') -Value "github.com,192.30.252.129 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
-      Add-Content $($sshPath, "known_hosts" -join '\') -Value "192.30.252.128 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
-      Add-Content $($sshPath, "known_hosts" -join '\') -Value "192.30.252.131 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
-      Add-Content $($sshPath, "known_hosts" -join '\') -Value "192.30.252.130 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
-   }
-}
-
-Function New-rsSSHKey {
-   if((Get-rsRole -Value $env:COMPUTERNAME) -eq "Pull") {
-      Start-Service Browser
-      if(Test-Path -Path "C:\Program Files (x86)\Git\.ssh\id_rsa*") {
-         Remove-Item "C:\Program Files (x86)\Git\.ssh\id_rsa*"
-      }
-      Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Generating ssh Key"
-      try {
-         Start -Wait -NoNewWindow "C:\Program Files (x86)\Git\bin\ssh-keygen.exe" -ArgumentList "-t rsa -f 'C:\Program Files (x86)\Git\.ssh\id_rsa' -P """""
-      }
-      catch {
-         Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Failed to generate SSH Key `n $($_.Exception.Message)"
-      }
-      Stop-Service Browser
-   }
-   return
-}
-   
-Function Push-rsSSHKey {
-   if((Get-rsRole -Value $env:COMPUTERNAME) -eq "pull") {
-      start-service Browser
-      $keys = Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.git_Oauthtoken)"} -ContentType application/json -Method GET
-      $pullKeys = $keys | ? title -eq $($d.rs_DDI, "_", $env:COMPUTERNAME -join '')
-      if((($pullKeys).id).count -gt 0) {
-         foreach($pullKey in $pullKeys) {
-            Invoke-rsRestMethod -Uri $("https://api.github.com/user/keys", $pullKey.id -join '/') -Headers @{"Authorization" = "token $($d.git_Oauthtoken)"} -ContentType application/json -Method DELETE
-         }
-      }
-      $sshKey = Get-Content -Path "C:\Program Files (x86)\Git\.ssh\id_rsa.pub"
-      $json = @{"title" = "$($d.rs_DDI, "_", $env:COMPUTERNAME -join '')"; "key" = "$sshKey"} | ConvertTo-Json
-      Invoke-rsRestMethod -Uri "https://api.github.com/user/keys" -Headers @{"Authorization" = "token $($d.git_Oauthtoken)"} -Body $json -ContentType application/json -Method POST
-      Stop-Service Browser
-   }
-   return
-}
-
-Function Install-rsCertificates {
-   if(!(Test-Path -Path $("C:\DevOps", $d.mR, "Certificates" -join '\'))) {
-      New-Item $("C:\DevOps", $d.mR, "Certificates" -join '\') -ItemType Container
-   }
-   if((Get-rsRole -Value $env:COMPUTERNAME) -eq "Pull") {
-      Start-Service Browser
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "pull origin $($d.branch_rsConfigs)"
-      Remove-Item -Path $("C:\DevOps", $d.mR, "Certificates\id_rsa*" -join '\') -Force
-      Write-Log -value "Installing Certificate"
-      Copy-Item -Path "C:\Program Files (x86)\Git\.ssh\id_rsa" -Destination $("C:\DevOps", $d.mR, "Certificates\id_rsa.txt" -join '\') -Force
-      Copy-Item -Path "C:\Program Files (x86)\Git\.ssh\id_rsa.pub" -Destination $("C:\DevOps", $d.mR, "Certificates\id_rsa.pub" -join '\') -Force
-      chdir $("C:\DevOps", $d.mR -join '\')
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "add $("C:\DevOps", $d.mR, "Certificates\id_rsa.txt" -join '\')"
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "add $("C:\DevOps", $d.mR, "Certificates\id_rsa.pub" -join '\')"
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "commit -a -m `"pushing ssh keys`""
-      Start -Wait "C:\Program Files (x86)\Git\bin\git.exe" -ArgumentList "push origin $($d.branch_rsConfigs)"
-      Stop-Service Browser
-   }
-   if((Get-rsRole -Value $env:COMPUTERNAME) -ne "Pull") {
-      Copy-Item -Path $("C:\DevOps", $d.mR, "Certificates\id_rsa.txt" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa'
-      Copy-Item -Path $("C:\DevOps", $d.mR, "Certificates\id_rsa.pub" -join '\') -Destination 'C:\Program Files (x86)\Git\.ssh\id_rsa.pub'
-      powershell.exe certutil -addstore -f root $("C:\DevOps", $d.mR, "Certificates\PullServer.crt" -join '\')
-   }
-}
-
 Function Update-rsGitConfig {
    param (
       [string][ValidateSet('global', 'system')]$scope = 'system',
@@ -542,4 +462,19 @@ Function Set-rsHash
       [String] $hash
    )
    Set-Content -Path $hash -Value (Get-FileHash -Path $file | ConvertTo-Csv)
+}
+Function Invoke-DSC
+{
+    do {
+        Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Installing DSC $("C:\DevOps", $d.mR, "rsPullServer.ps1" -join '\')"
+        taskkill /F /IM WmiPrvSE.exe
+        try{
+            $rstime = Measure-Command {Invoke-Expression $('C:\DevOps', $d.mR, 'rsPullServer.ps1' -join '\')}
+        }
+        catch {
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1002 -Message "Error in rsPullServer`n$($_.Exception.message)"
+        }
+    }
+    while (!(Test-Path -Path "C:\Windows\System32\Configuration\Current.mof"))
+    Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "PullServer DSC installation completed in $($rstime.TotalSeconds) seconds" 
 }
