@@ -476,5 +476,5 @@ Function Invoke-DSC
         }
     }
     while (!(Test-Path -Path "C:\Windows\System32\Configuration\Current.mof"))
-    Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "PullServer DSC installation completed in $($rstime.TotalSeconds)" 
+    Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "PullServer DSC installation completed in $($rstime.TotalSeconds) seconds" 
 }
