@@ -1,3 +1,4 @@
+##CI PR test
 Function Get-rsSecrets {
    if(Test-Path -Path "C:\DevOps\secrets.ps1") {
       return "C:\DevOps\secrets.ps1"
