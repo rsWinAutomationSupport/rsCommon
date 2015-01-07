@@ -1,6 +1,7 @@
 rsCommon
 ========
 
+
 To use:
 
 Clone to directory<br>
@@ -13,7 +14,7 @@ Import-Module rsCommon
 Get-Command -Module rsCommon
 
 
-```PoSh
+```Posh
 rsGit rsCommon
 {
     name = "rsCommon"
