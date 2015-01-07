@@ -14,7 +14,7 @@ Import-Module rsCommon
 Get-Command -Module rsCommon
 
 
-```PoSh
+```Posh
 rsGit rsCommon
 {
     name = "rsCommon"
