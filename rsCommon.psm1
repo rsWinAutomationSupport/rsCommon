@@ -3,7 +3,7 @@ Function Get-rsSecrets {
       return "C:\DevOps\secrets.ps1"
    }
 }
-. (Get-rsSecrets)
+$d = Get-Content 'C:\DevOps\secrets.json' | ConvertFrom-Json
 
 if(Test-Path -Path $("C:\DevOps", $d.mR, 'PullServerinfo.ps1' -join '\')) {
    . "$("C:\DevOps", $d.mR, 'PullServerinfo.ps1' -join '\')"
@@ -135,7 +135,7 @@ Function Get-rsXenInfo {
    return $data
 }
 Function Get-rsDedicatedInfo {
-   . (Get-rsSecrets)
+   $d = Get-Content 'C:\DevOps\secrets.json' | ConvertFrom-Json
    if(Test-Path -Path $("C:\DevOps", $d.mR, "dedicated.csv" -join '\')) {
       $Data = Import-Csv $("C:\DevOps", $d.mR, "dedicated.csv" -join '\')
       if(($Data) -ne $null) {
@@ -399,7 +399,7 @@ Function Unlock-Credentials
       [Parameter(Mandatory=$true)]
       [string]$DatabagName
    )
-   . (Get-rsSecrets)
+  $d = Get-Content 'C:\DevOps\secrets.json' | ConvertFrom-Json
    
    $filePath = ("C:\DevOps", $d.mR, "$DatabagName.json" -join "\")
    If ( -not (Test-Path -Path $filePath))
