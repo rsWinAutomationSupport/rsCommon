@@ -417,7 +417,8 @@ Function Unlock-Credentials
          $decryptCert = Get-ChildItem Cert:\LocalMachine\My\ | Where-Object { $_.Thumbprint -eq [System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($item.Thumbprint)) }
          If ( -not $decryptCert ) 
          { 
-            Write-Host "Certificate with Thumbprint $Thumbprint could not be found. Skipping."
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Warning -EventId 1000 -Message "Certificate with Thumbprint $Thumbprint could not be found. Skipping."
+            #Write-Host "Certificate with Thumbprint $Thumbprint could not be found. Skipping."
             Continue
          }
          
