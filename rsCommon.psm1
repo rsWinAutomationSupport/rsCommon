@@ -360,7 +360,7 @@ Function Test-rsManaged
             do 
             {
                 Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Testing for rax_service_level_automation."
-                if ((Get-rsXenInfo -value "vm-data/user-metadata/rax_service_level_automation") -eq "Complete")
+                if ((Get-rsXenInfo -value "vm-data/user-metadata/rax_service_level_automation") -ne "Complete")
                 {
                     $automationComlete = $false
                     Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Waiting for rax_service_level_automation."
