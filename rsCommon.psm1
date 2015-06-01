@@ -347,23 +347,42 @@ Function Test-rsRackConnect {
     }
 }
 
-Function Test-rsManaged {
-    if(Test-rsCloud) {
-        if((Get-rsXenInfo -value "vm-data/user-metadata/rax_service_level_automation").value.count -gt 0 ) { 
-            $exists = $true 
+# Check if the cloud account is Managed and if so, confirm that server level automation (Servermill) has completed
+#
+Function Test-rsManaged 
+{
+    if(Test-rsCloud) 
+    {
+        if ((Get-rsAccountDetails).isManaged) 
+        {            
+            $automationComlete = $false
+            $Timeout = 1800 # Default timeout set to about 30 minutes
+            do 
+            {
+                Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Testing for rax_service_level_automation."
+                if ((Get-rsXenInfo -value "vm-data/user-metadata/rax_service_level_automation") -ne "Complete")
+                {
+                    $automationComlete = $false
+                    Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Waiting for rax_service_level_automation."
+                    Start-Sleep -Seconds 60
+                    $Timeout = ($Timeout - 60)
+                }
+                else
+                {
+                    $automationComlete = $true
+                    Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation complete."
+                }
+            } 
+            while (($automationComlete -eq $false) -or ($Timeout -lt 0))
+
+            if (($automationComlete -eq $false) -and ($Timeout -lt 0))
+            {
+                Write-EventLog -LogName DevOps -Source rsCommon -EntryType Error -EventId 1000 -Message "rax_service_level_automation process timed out - some or all Rackspace cloud automation steps did not complete."
+            }
         }
-        else { 
-            $exists = $false 
-            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Testing for rax_service_level_automation."
-        } 
-        if ( $exists )
+        else
         {
-        do {
-            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Waiting for rax_service_level_automation."
-            Start-Sleep -Seconds 30
-        }
-        while ( (Test-Path "C:\Windows\Temp\rs_managed_cloud_automation_complete.txt" ) -eq $false)
-        Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "rax_service_level_automation complete."
+            Write-EventLog -LogName DevOps -Source rsCommon -EntryType Information -EventId 1000 -Message "Account is not managed, skipping wait for rax_service_level_automation"
         }
     } 
 }
